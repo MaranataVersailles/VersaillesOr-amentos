@@ -3,6 +3,7 @@ const ejs = require('ejs');
 const path = require('path');
 const { generatePdf } = require('./generator');
 const { knex } = require('./db'); 
+const companyData = require('./company-data'); 
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const formatDate = (dateStr) => {
     return correctedDate.toLocaleDateString('pt-BR');
 };
 const formatCurrency = (value) => {
-    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
 // ROTA PARA CRIAR ORÇAMENTO, SALVAR NO BANCO E GERAR PDF
@@ -64,10 +65,9 @@ router.post('/quotes', async (req, res) => {
         
         console.log('Orçamento salvo com sucesso no banco de dados.');
 
-        // Se salvou tudo certo, agora gera o PDF
         const html = await ejs.renderFile(
             path.join(__dirname, '..', 'templates', 'orcamento.ejs'), 
-            { quote: quoteData, company: quoteData.company, client: quoteData.client, formatDate, formatCurrency }
+            { quote: quoteData, company: companyData, client: quoteData.client, formatDate, formatCurrency }
         );
 
         const outPath = path.join(__dirname, '..', 'data', `orcamento-${quoteData.quote_number}.pdf`);
@@ -135,5 +135,102 @@ router.delete('/api/orcamentos/:id', async (req, res) => {
     }
 });
 
+// ROTA PARA ATUALIZAR UM ORÇAMENTO EXISTENTE
+router.put('/api/orcamentos/:id', async (req, res) => {
+    const { id } = req.params;
+    const quoteData = req.body;
+
+    try {
+        await knex.transaction(async trx => {
+            // 1. Atualiza ou insere o cliente
+            const [clientResult] = await trx('clients').insert({
+                name: quoteData.client.name,
+                address: quoteData.client.address,
+                phone: quoteData.client.phone
+            }).returning('id').onConflict('name').merge();
+            
+            const clientId = clientResult.id;
+
+            // 2. Atualiza o orçamento principal
+            await trx('quotes').where('id', id).update({
+                quote_number: quoteData.quote_number,
+                client_id: clientId,
+                date: quoteData.date,
+                delivery_date: quoteData.delivery_date || null,
+                valid_until: quoteData.valid_until || null,
+                total: quoteData.total,
+                updated_at: knex.fn.now() // Opcional: marca quando foi atualizado
+            });
+
+            // 3. Deleta os itens antigos do orçamento
+            await trx('quote_items').where('quote_id', id).del();
+
+            // 4. Insere os novos itens do orçamento, se houver
+            if (quoteData.items && quoteData.items.length > 0) {
+                const itemsToInsert = quoteData.items.map(item => ({
+                    quote_id: id, // Usa o ID do orçamento existente
+                    title: item.title,
+                    image_filename: item.image_filename,
+                    width: item.width,
+                    height: item.height,
+                    glass: item.glass,
+                    aluminum_color: item.aluminum,
+                    hardware_color: item.hardware,
+                    quantity: item.quantity,
+                    total_price: item.total_price
+                }));
+                await trx('quote_items').insert(itemsToInsert);
+            }
+        });
+
+        res.json({ message: 'Orçamento atualizado com sucesso!' });
+
+    } catch (error) {
+        console.error("Erro ao atualizar orçamento:", error);
+        res.status(500).json({ error: 'Erro ao atualizar o orçamento.' });
+    }
+});
+
+
+// ROTA PARA GERAR PDF DE UM ORÇAMENTO EXISTENTE
+router.get('/gerar-pdf/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // 1. Buscar todos os dados do orçamento
+        const quote = await knex('quotes').where('quotes.id', id).first();
+        if (!quote) {
+            return res.status(404).send('Orçamento não encontrado.');
+        }
+        const client = await knex('clients').where('id', quote.client_id).first();
+        const items = await knex('quote_items').where('quote_id', id);
+
+        // 2. Montar o objeto de dados completo para o template
+        const quoteData = {
+            ...quote,
+            items: items.map(item => ({
+                ...item,
+                aluminum: item.aluminum_color,
+                hardware: item.hardware_color
+            })),
+            client,
+            company: companyData
+        };
+
+        // 3. Renderizar o template EJS com os dados
+        const html = await ejs.renderFile(
+            path.join(__dirname, '..', 'templates', 'orcamento.ejs'), 
+            { quote: quoteData, company: quoteData.company, client: quoteData.client, formatDate, formatCurrency }
+        );
+
+        // 4. Gerar e enviar o PDF
+        const outPath = path.join(__dirname, '..', 'data', `orcamento-${quoteData.quote_number}.pdf`);
+        await generatePdf(html, outPath);
+        res.download(outPath);
+
+    } catch (error) {
+        console.error("Erro ao gerar PDF de orçamento existente:", error);
+        res.status(500).send("Erro ao gerar o PDF. Verifique o console do servidor.");
+    }
+});
 
 module.exports = router;
