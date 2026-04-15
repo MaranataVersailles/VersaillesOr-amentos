@@ -1,0 +1,55 @@
+import { NextRequest, NextResponse } from "next/server";
+import { put, list } from "@vercel/blob";
+
+export const dynamic = "force-dynamic";
+
+// GET /api/images — Listar todas as imagens do Blob
+export async function GET() {
+  try {
+    const { blobs } = await list();
+
+    const images = blobs
+      .filter((blob) => /\.(jpg|jpeg|png|gif|webp)$/i.test(blob.pathname))
+      .map((blob) => ({
+        name: blob.pathname,
+        url: blob.url,
+        size: blob.size,
+      }));
+
+    return NextResponse.json(images);
+  } catch (error) {
+    console.error("Erro ao listar imagens:", error);
+    // Se o Blob não estiver configurado, retornar array vazio
+    return NextResponse.json([]);
+  }
+}
+
+// POST /api/images — Upload de nova imagem
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+
+    if (!file) {
+      return NextResponse.json(
+        { error: "Nenhum arquivo enviado." },
+        { status: 400 }
+      );
+    }
+
+    const blob = await put(file.name, file, {
+      access: "public",
+    });
+
+    return NextResponse.json({
+      url: blob.url,
+      name: blob.pathname,
+    });
+  } catch (error) {
+    console.error("Erro ao fazer upload:", error);
+    return NextResponse.json(
+      { error: "Erro ao fazer upload da imagem." },
+      { status: 500 }
+    );
+  }
+}
