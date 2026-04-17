@@ -5,12 +5,11 @@ import { eq } from "drizzle-orm";
 
 export async function DELETE(
   req: Request,
-  context: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Garantir compatibilidade com Next.js 15 (params como Promise)
-    const params = await Promise.resolve(context.params);
-    const id = parseInt(params.id);
+    const { id: paramId } = await params;
+    const id = parseInt(paramId);
     
     if (isNaN(id)) {
       return new NextResponse("Invalid ID", { status: 400 });

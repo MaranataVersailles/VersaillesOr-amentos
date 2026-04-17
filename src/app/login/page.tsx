@@ -17,7 +17,7 @@ const containerVariants = {
   },
 };
 
-const fadeUp = {
+const fadeUp: any = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -26,7 +26,7 @@ const fadeUp = {
   },
 };
 
-const fadeIn = {
+const fadeIn: any = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
