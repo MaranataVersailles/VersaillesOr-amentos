@@ -55,7 +55,7 @@ export async function POST(
 
     // Duplicar itens
     if (originalItems.length > 0) {
-      const itemsToInsert = originalItems.map((item) => ({
+      const itemsToInsert = originalItems.map((item: any) => ({
         quoteId: newQuote.id,
         title: item.title,
         imageUrl: item.imageUrl,
