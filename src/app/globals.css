@@ -153,8 +153,45 @@
 
 /* PDF-specific print styles */
 @media print {
+  /* Hide ALL content visually (but preserve DOM structure) */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Show ONLY the PDF content and everything inside it */
+  [data-pdf-content],
+  [data-pdf-content] * {
+    visibility: visible !important;
+  }
+
+  /* Position PDF content at the very top of the printed page */
+  [data-pdf-content] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 10mm 12mm !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Generic no-print utility */
   .no-print {
     display: none !important;
+  }
+
+  /* Reset page margins for clean PDF output */
+  @page {
+    margin: 5mm;
+  }
+
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 

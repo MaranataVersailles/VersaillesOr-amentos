@@ -132,7 +132,7 @@ export function QuotePreview({ client, quote, onClose }: QuotePreviewProps) {
                     <p style={{ margin: "3px 0" }}>QUANTIDADE: {item.quantity}</p>
                   </div>
                 </div>
-                <div style={{ textAlign: "right", fontSize: "10pt", minWidth: "180px" }}>
+                <div style={{ textAlign: "right", fontSize: "10pt", minWidth: "180px", whiteSpace: "nowrap" }}>
                   {item.unit_price > 0 && <p style={{ margin: "3px 0" }}>VALOR UNITÁRIO: R$ {formatCurrencyValue(item.unit_price)}</p>}
                   <p style={{ margin: "3px 0" }}><strong>VALOR TOTAL: R$ {formatCurrencyValue(item.total_price)}</strong></p>
                 </div>
